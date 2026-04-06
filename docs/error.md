@@ -1,0 +1,13 @@
+# Error Log
+
+This file tracks mistakes made during development sessions. Read this at the start of every session to avoid repeating errors.
+
+---
+
+<!-- Errors will be logged here as they occur. Format:
+## [Date] - Short description
+**What happened**: ...
+**Root cause**: ...
+**Fix**: ...
+**Avoid by**: ...
+-->
