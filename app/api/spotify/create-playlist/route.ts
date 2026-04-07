@@ -19,11 +19,10 @@ export async function POST(req: Request) {
   const playlist = await pl.json()
   if (!playlist.id) return NextResponse.json({ error: JSON.stringify(playlist) })
 
-  const testUris = ["spotify:track:4cOdK2wGLETKBW3PvgPWqT"]
   const addRes = await fetch("https://api.spotify.com/v1/playlists/" + playlist.id + "/tracks", {
     method: "POST",
     headers: { Authorization: "Bearer " + session.accessToken, "Content-Type": "application/json" },
-    body: JSON.stringify({ uris: testUris })
+    body: JSON.stringify({ uris: body.uris })
   })
   const addData = await addRes.json()
   console.log("ADD RESULT:", JSON.stringify(addData))
