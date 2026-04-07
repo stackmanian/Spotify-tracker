@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     `https://api.spotify.com/v1/recommendations?${params.toString()}`,
     { headers: { Authorization: `Bearer ${session.accessToken}` } }
   )
-  const data = await response.json()
+  const text = await response.text()
+  const data = text ? JSON.parse(text) : {}
   return NextResponse.json(data)
 }
