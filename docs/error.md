@@ -18,6 +18,13 @@ This file tracks mistakes made during development sessions. Read this at the sta
 **Fix**: Replace hardcoded URI with `body.uris` passed in the POST request.
 **Status**: Fixed 2026-04-06 — replaced hardcoded URI with `body.uris`.
 
+## 2026-04-06 - POST /v1/playlists/{id}/tracks returns 403 — endpoint renamed to /items
+**File**: `app/api/spotify/create-playlist/route.ts`
+**What happened**: Spotify renamed `/playlists/{id}/tracks` to `/playlists/{id}/items` in their February 2026 API migration. New apps calling the old `/tracks` endpoint receive 403 Forbidden. Playlists were being created but tracks silently failed to add.
+**Fix**: Changed endpoint from `/playlists/{id}/tracks` to `/playlists/{id}/items`.
+**Source**: Spotify Feb 2026 Migration Guide — developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide
+**Avoid by**: Always check Spotify's migration guides before using playlist/track write endpoints. The full renamed set: `/items` replaces `/tracks` for add, get, update, and delete.
+
 ## 2026-04-06 - Multiple Spotify browse/artist endpoints return 403 for new apps
 **Files**: `app/recently-played/page.tsx`, `app/api/spotify/artist-top-tracks/route.ts`, `app/api/spotify/new-releases/route.ts`
 **What happened**: `/v1/artists/{id}/top-tracks`, `/v1/browse/new-releases`, and `/v1/recommendations` all return 403 Forbidden for apps created after Spotify's late-2024 API restrictions. Signing out and back in does NOT fix it — it is an app-level restriction.
