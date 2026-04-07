@@ -34,21 +34,21 @@ function formatListeningTime(ms: number): string {
   return `${hours}h ${mins}m`
 }
 
-function getTopGenre(artists: any[]): string {
-  if (!artists?.length) return "—"
-  const genreCount = new Map<string, number>()
+function getGenreBreakdown(artists: any[], limit = 5): { genre: string; count: number }[] {
+  const counts = new Map<string, number>()
   for (const artist of artists) {
     for (const genre of (artist.genres || [])) {
-      genreCount.set(genre, (genreCount.get(genre) ?? 0) + 1)
+      counts.set(genre, (counts.get(genre) ?? 0) + 1)
     }
   }
-  if (genreCount.size === 0) return "—"
-  let top = ""
-  let max = 0
-  genreCount.forEach((count, genre) => {
-    if (count > max) { max = count; top = genre }
-  })
-  return top.replace(/\b\w/g, c => c.toUpperCase())
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([genre, count]) => ({ genre, count }))
+}
+
+function capitalize(str: string): string {
+  return str.replace(/\b\w/g, c => c.toUpperCase())
 }
 
 export default async function Dashboard() {
@@ -68,7 +68,8 @@ export default async function Dashboard() {
     .filter((item: any) => new Date(item.played_at) >= startOfMonth)
     .reduce((sum: number, item: any) => sum + (item.track.duration_ms ?? 0), 0)
 
-  const topGenre = getTopGenre(artists.items || [])
+  const genres = getGenreBreakdown(artists.items || [], 5)
+  const topGenre = genres[0]?.genre ?? "—"
   const topArtist = artists.items?.[0]
   const topTrack = tracks.items?.[0]
 
@@ -88,7 +89,7 @@ export default async function Dashboard() {
 
         <div className="bg-gray-900 rounded-xl p-5 flex flex-col gap-1">
           <span className="text-gray-400 text-xs uppercase tracking-wider">Top Genre</span>
-          <span className="text-white text-2xl font-bold truncate">{topGenre}</span>
+          <span className="text-white text-2xl font-bold truncate">{capitalize(topGenre)}</span>
           <span className="text-gray-400 text-sm">most played style</span>
         </div>
 
@@ -116,6 +117,31 @@ export default async function Dashboard() {
         </div>
 
       </div>
+
+      {/* Genre Breakdown */}
+      {genres.length > 0 && (
+        <div className="bg-gray-900 rounded-xl p-6 mb-10">
+          <h2 className="text-xs uppercase tracking-wider text-gray-400 mb-5">Your Top Genres</h2>
+          <div className="space-y-3">
+            {genres.map(({ genre, count }, i) => {
+              const pct = Math.round((count / genres[0].count) * 100)
+              return (
+                <div key={genre} className="flex items-center gap-3">
+                  <span className="text-gray-500 text-xs w-4">{i + 1}</span>
+                  <span className="text-white text-sm font-medium w-36 shrink-0">{capitalize(genre)}</span>
+                  <div className="flex-1 bg-gray-800 rounded-full h-2">
+                    <div
+                      className="bg-green-500 h-2 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-gray-500 text-xs w-6 text-right">{count}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Navigation Cards */}
       <h2 className="text-gray-400 text-xs uppercase tracking-wider mb-4">Explore</h2>

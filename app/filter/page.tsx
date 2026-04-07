@@ -19,6 +19,22 @@ function formatDuration(ms: number): string {
   return `${min}:${sec.toString().padStart(2, "0")}`
 }
 
+function getGenreBreakdown(artists: any[]): { genre: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const artist of artists) {
+    for (const genre of (artist.genres || [])) {
+      counts.set(genre, (counts.get(genre) ?? 0) + 1)
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([genre, count]) => ({ genre, count }))
+}
+
+function capitalize(str: string): string {
+  return str.replace(/\b\w/g, c => c.toUpperCase())
+}
+
 function formatTotalTime(ms: number): string {
   const totalMin = Math.round(ms / 60000)
   const hours = Math.floor(totalMin / 60)
@@ -28,7 +44,7 @@ function formatTotalTime(ms: number): string {
 }
 
 export default function FilterPage() {
-  const [view, setView] = useState<"tracks" | "artists">("tracks")
+  const [view, setView] = useState<"tracks" | "artists" | "genres">("tracks")
   const [tracks, setTracks] = useState<any[]>([])
   const [artists, setArtists] = useState<any[]>([])
   const [filtered, setFiltered] = useState<any[]>([])
@@ -130,18 +146,15 @@ export default function FilterPage() {
 
       {/* View toggle */}
       <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setView("tracks")}
-          className={`px-5 py-2 rounded-full font-semibold text-sm transition-colors ${view === "tracks" ? "bg-green-500 text-black" : "bg-gray-800 text-gray-400 hover:text-white"}`}
-        >
-          Tracks
-        </button>
-        <button
-          onClick={() => setView("artists")}
-          className={`px-5 py-2 rounded-full font-semibold text-sm transition-colors ${view === "artists" ? "bg-green-500 text-black" : "bg-gray-800 text-gray-400 hover:text-white"}`}
-        >
-          Artists
-        </button>
+        {(["tracks", "artists", "genres"] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`px-5 py-2 rounded-full font-semibold text-sm transition-colors capitalize ${view === v ? "bg-green-500 text-black" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+          >
+            {v.charAt(0).toUpperCase() + v.slice(1)}
+          </button>
+        ))}
       </div>
 
       {/* Time range button group */}
@@ -157,8 +170,8 @@ export default function FilterPage() {
         ))}
       </div>
 
-      {/* Filter bar */}
-      <div className="flex gap-4 mb-6 flex-wrap items-center">
+      {/* Filter bar — hidden in genres view */}
+      <div className={`flex gap-4 mb-6 flex-wrap items-center ${view === "genres" ? "hidden" : ""}`}>
         <input
           type="text"
           placeholder={view === "tracks" ? "Filter by track or artist..." : "Filter by artist name..."}
@@ -179,7 +192,7 @@ export default function FilterPage() {
               disabled={creating || filtered.length === 0}
               className="bg-green-500 hover:bg-green-400 disabled:bg-gray-700 text-black font-bold py-2 px-6 rounded-full ml-auto"
             >
-              {creating ? "Creating..." : `Create Playlist (~${Math.min(filtered.length + 20, 40)} tracks)`}
+              {creating ? "Creating..." : "Create Playlist"}
             </button>
           </>
         )}
@@ -205,6 +218,32 @@ export default function FilterPage() {
             </div>
           ))}
         </div>
+      ) : view === "genres" ? (
+        <div>
+          <p className="text-gray-500 text-sm mb-6">Based on your top artists · {TIME_RANGES[rangeIndex].label}</p>
+          {(() => {
+            const breakdown = getGenreBreakdown(artists)
+            if (breakdown.length === 0) return <p className="text-gray-500">No genre data available.</p>
+            const max = breakdown[0].count
+            return (
+              <div className="space-y-3 max-w-2xl">
+                {breakdown.map(({ genre, count }, i) => (
+                  <div key={genre} className="flex items-center gap-3">
+                    <span className="text-gray-500 text-xs w-5">{i + 1}</span>
+                    <span className="text-white text-sm font-medium w-40 shrink-0">{capitalize(genre)}</span>
+                    <div className="flex-1 bg-gray-800 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full"
+                        style={{ width: `${Math.round((count / max) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-gray-500 text-xs w-6 text-right">{count}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+        </div>
       ) : (
         <div className="space-y-2">
           {filteredArtists.map((artist: any, i: number) => (
@@ -215,11 +254,13 @@ export default function FilterPage() {
                 <p className="font-medium truncate">{artist.name}</p>
                 <p className="text-gray-400 text-sm truncate">{artist.followers?.total?.toLocaleString()} followers</p>
               </div>
-              {artist.genres?.[0] && (
-                <span className="text-xs bg-gray-800 text-green-400 rounded-full px-3 py-1 shrink-0">
-                  {artist.genres[0]}
-                </span>
-              )}
+              <div className="flex gap-1 flex-wrap justify-end">
+                {(artist.genres || []).slice(0, 3).map((g: string) => (
+                  <span key={g} className="text-xs bg-gray-800 text-green-400 rounded-full px-2 py-0.5 shrink-0">
+                    {g}
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
         </div>
