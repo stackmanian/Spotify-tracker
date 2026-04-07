@@ -75,14 +75,39 @@ export default function FilterPage() {
   async function createPlaylist() {
     setCreating(true)
     setMessage("")
-    const uris = filtered.map((t: any) => t.uri)
+    const userUris = filtered.map((t: any) => t.uri)
+    const userIds  = filtered.map((t: any) => t.id)
     const name = "Spotify Tracker — " + TIME_RANGES[rangeIndex].label + (nameFilter ? " — " + nameFilter : "")
+
+    const TARGET = 40
+    let finalUris = [...userUris]
+
+    // Fill up to 40 tracks with Spotify recommendations seeded from user's tracks
+    if (userUris.length < TARGET && userIds.length > 0) {
+      const needed = TARGET - userUris.length
+      const seedIds = userIds.slice(0, 5).join(",")
+      try {
+        const recRes = await fetch(
+          `/api/spotify/recommendations?seed_tracks=${seedIds}&limit=${Math.min(needed, 50)}`,
+          { credentials: "include" }
+        )
+        const recData = recRes.ok ? await recRes.json().catch(() => ({})) : {}
+        const recUris = (recData.tracks || [])
+          .filter((t: any) => !userUris.includes(t.uri))
+          .slice(0, needed)
+          .map((t: any) => t.uri)
+        finalUris = [...userUris, ...recUris]
+      } catch {
+        // If recommendations fail, proceed with user tracks only
+      }
+    }
+
     try {
       const res = await fetch("/api/spotify/create-playlist", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, uris }),
+        body: JSON.stringify({ name, uris: finalUris }),
       })
       const data = await res.json()
       if (data.url) {
@@ -154,7 +179,7 @@ export default function FilterPage() {
               disabled={creating || filtered.length === 0}
               className="bg-green-500 hover:bg-green-400 disabled:bg-gray-700 text-black font-bold py-2 px-6 rounded-full ml-auto"
             >
-              {creating ? "Creating..." : "Create Playlist"}
+              {creating ? "Creating..." : `Create Playlist (~${Math.min(filtered.length + 20, 40)} tracks)`}
             </button>
           </>
         )}
