@@ -12,45 +12,60 @@ function timeAgo(isoString: string): string {
   return `${diffDay}d ago`
 }
 
-function formatReleaseDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
-}
-
 export default function RecentlyPlayedPage() {
   const [recentItems, setRecentItems] = useState<any[]>([])
-  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [favorites, setFavorites] = useState<any[]>([])
   const [newReleases, setNewReleases] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchAll() {
       setLoading(true)
-      const recentRes = await fetch("/api/spotify/recently-played?limit=50", { credentials: "include" })
-      const recentData = await recentRes.json()
+
+      // Fetch all three in parallel — all use working endpoints
+      const [recentRes, topTracksRes, topArtistsRes] = await Promise.all([
+        fetch("/api/spotify/recently-played?limit=50", { credentials: "include" }),
+        fetch("/api/spotify/top-tracks?time_range=medium_term", { credentials: "include" }),
+        fetch("/api/spotify/top-artists?time_range=medium_term", { credentials: "include" }),
+      ])
+
+      const recentData = recentRes.ok ? await recentRes.json().catch(() => ({})) : {}
+      const topTracksData = topTracksRes.ok ? await topTracksRes.json().catch(() => ({})) : {}
+      const topArtistsData = topArtistsRes.ok ? await topArtistsRes.json().catch(() => ({})) : {}
+
       const items = recentData.items || []
       setRecentItems(items)
 
-      if (items.length === 0) {
-        setLoading(false)
-        return
+      // "Recommended for You" = top tracks over last 6 months
+      // that aren't in the last 10 recently played (show things they love but haven't heard recently)
+      const last10Ids = new Set(items.slice(0, 10).map((i: any) => i.track.id))
+      const favTracks = (topTracksData.items || []).filter((t: any) => !last10Ids.has(t.id))
+      setFavorites(favTracks.slice(0, 20))
+
+      // "New Releases" = fetch albums from top 3 artists using /v1/artists/{id}/albums
+      const topArtists = (topArtistsData.items || []).slice(0, 3)
+      const albumResponses = await Promise.all(
+        topArtists.map((a: any) =>
+          fetch(`/api/spotify/artist-albums?artist_id=${a.id}`, { credentials: "include" })
+        )
+      )
+
+      const allAlbums: any[] = []
+      const seenAlbumIds = new Set<string>()
+      for (const res of albumResponses) {
+        if (!res.ok) continue
+        const data = await res.json().catch(() => ({}))
+        for (const album of (data.items || [])) {
+          if (!seenAlbumIds.has(album.id)) {
+            seenAlbumIds.add(album.id)
+            allAlbums.push(album)
+          }
+        }
       }
+      // Sort by release date descending
+      allAlbums.sort((a, b) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime())
+      setNewReleases(allAlbums.slice(0, 12))
 
-      // Seed recommendations from first 5 unique track IDs
-      const seedIds = [...new Map(items.map((i: any) => [i.track.id, i.track.id])).values()]
-        .slice(0, 5)
-        .join(",")
-
-      const [recRes, releasesRes] = await Promise.all([
-        fetch(`/api/spotify/recommendations?seed_tracks=${seedIds}&limit=20`, { credentials: "include" }),
-        fetch("/api/spotify/new-releases?limit=12", { credentials: "include" }),
-      ])
-
-      const recData = recRes.ok ? await recRes.json().catch(() => ({})) : {}
-      const releasesData = releasesRes.ok ? await releasesRes.json().catch(() => ({})) : {}
-
-      setRecommendations(recData.tracks || [])
-      setNewReleases(releasesData.albums?.items || [])
       setLoading(false)
     }
     fetchAll()
@@ -88,14 +103,15 @@ export default function RecentlyPlayedPage() {
             </div>
           </aside>
 
-          {/* Right panel — recommendations + new releases */}
+          {/* Right panel */}
           <div className="flex-1 min-w-0">
 
-            {recommendations.length > 0 && (
+            {favorites.length > 0 && (
               <section className="mb-10">
-                <h2 className="text-lg font-semibold text-green-400 mb-4">Recommended for You</h2>
+                <h2 className="text-lg font-semibold text-green-400 mb-1">Your Favorites</h2>
+                <p className="text-gray-500 text-xs mb-4">Top tracks from the last 6 months you might want to revisit</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {recommendations.map((track: any) => (
+                  {favorites.map((track: any) => (
                     <a
                       key={track.id}
                       href={track.external_urls?.spotify}
@@ -123,7 +139,8 @@ export default function RecentlyPlayedPage() {
 
             {newReleases.length > 0 && (
               <section>
-                <h2 className="text-lg font-semibold text-green-400 mb-4">New Releases</h2>
+                <h2 className="text-lg font-semibold text-green-400 mb-1">From Your Top Artists</h2>
+                <p className="text-gray-500 text-xs mb-4">Latest releases from artists you listen to most</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {newReleases.map((album: any) => (
                     <a
@@ -144,14 +161,16 @@ export default function RecentlyPlayedPage() {
                         <p className="text-xs text-gray-400 truncate">
                           {album.artists?.map((a: any) => a.name).join(", ")}
                         </p>
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          {formatReleaseDate(album.release_date)}
-                        </p>
+                        <p className="text-xs text-gray-600 mt-0.5">{album.album_type}</p>
                       </div>
                     </a>
                   ))}
                 </div>
               </section>
+            )}
+
+            {favorites.length === 0 && newReleases.length === 0 && (
+              <p className="text-gray-500">Nothing to show yet — listen to more music and check back.</p>
             )}
 
           </div>
