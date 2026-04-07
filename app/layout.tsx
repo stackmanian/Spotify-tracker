@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <a href="/dashboard" className="text-gray-400 hover:text-white text-sm">Dashboard</a>
           <a href="/filter" className="text-gray-400 hover:text-white text-sm">Stats</a>
           <a href="/recently-played" className="text-gray-400 hover:text-white text-sm">Recently Played</a>
+          <a href="/discover" className="text-gray-400 hover:text-white text-sm">Discover</a>
           <a href="/playlists" className="text-gray-400 hover:text-white text-sm">Playlists</a>
           <a href="/api/auth/signout" className="text-gray-400 hover:text-white text-sm ml-auto">Sign Out</a>
         </nav>

@@ -54,3 +54,20 @@ This file tracks mistakes made during development sessions. Read this at the sta
 **What happened**: `SPOTIFY_CLIENT_ID` had a trailing space, causing Spotify OAuth to reject the client ID.
 **Fix**: Removed the trailing space from the value in `.env.local`.
 **Avoid by**: Check `.env.local` values for leading/trailing whitespace when debugging auth errors.
+
+## 2026-04-06 - Genre data unavailable for new Spotify apps (403 on /v1/artists)
+**Files**: `app/dashboard/page.tsx`, `app/api/spotify/top-artists/route.ts`
+**What happened**: `/v1/me/top/artists` returns artists with `genres` field missing entirely (not even an empty array). Batch-fetching via `/v1/artists?ids=...` to fill genres also returns 403. Genre data is fully gated for new apps.
+**Fix**: Removed genre-related UI (Top Genre stat card, genre breakdown bar chart) from the dashboard entirely. The filter page genres tab is also non-functional but left in place as a UI element.
+**Avoid by**: Do not build genre-dependent features for new Spotify apps. Genre data requires legacy app status.
+
+## 2026-04-06 - /v1/artists/{id}/related-artists returns 403 for new apps
+**What happened**: Tried to use related-artists for a Discover feature. Returns 403 Forbidden like other restricted endpoints.
+**Fix**: Used `/v1/search` (200 OK) to find adjacent artists by searching top artist names, then `/v1/artists/{id}/albums` + `/v1/albums/{id}/tracks` to get their music.
+**Avoid by**: Add `/v1/artists/{id}/related-artists` to the blocked endpoints list. Use search API as the discovery mechanism.
+
+## 2026-04-07 - Discover page: appears_on, collaborator, and album-chain approaches all fail
+**Files**: `app/api/spotify/discover/route.ts`
+**What happened**: Tried multiple strategies to find new artists: (1) `appears_on` album include group returns 0 results, (2) collaborator extraction from album tracks returns 0 for solo artists, (3) quoted artist name search for type=artist returns 0 useful results, (4) searching track names returns mostly the original artist's tracks. All approaches that rely on chaining album/artist endpoints produce empty results for new Spotify apps.
+**Fix**: Use Spotify search with `NOT` operator: `"track name NOT artist name"` finds covers/similar songs by other artists. Supplement with `"tag:new artist name"` for fresh releases and broad genre queries. Simple, few API calls, actually works.
+**Avoid by**: For new Spotify apps, don't try to build recommendation chains from artist/album endpoints. The search API with smart queries is the only reliable discovery mechanism.

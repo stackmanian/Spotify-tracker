@@ -1,12 +1,14 @@
 "use client"
 import { useState } from "react"
 
+// Spotify deprecated /v1/recommendations for new apps — mood playlists use
+// the user's own top tracks (short_term for energy, long_term for nostalgic, etc.)
 const MOOD_PRESETS = [
-  { label: "Happy",  seeds: "pop,dance pop,happy",   emoji: "😊" },
-  { label: "Focus",  seeds: "focus,study,ambient",   emoji: "🎯" },
-  { label: "Chill",  seeds: "chill,lo-fi,indie",     emoji: "😌" },
-  { label: "Hype",   seeds: "hip-hop,rap,trap",      emoji: "🔥" },
-  { label: "Sleep",  seeds: "sleep,ambient,piano",   emoji: "🌙" },
+  { label: "Happy",     emoji: "😊", timeRange: "short_term"  },
+  { label: "Focus",     emoji: "🎯", timeRange: "medium_term" },
+  { label: "Chill",     emoji: "😌", timeRange: "medium_term" },
+  { label: "Hype",      emoji: "🔥", timeRange: "short_term"  },
+  { label: "Nostalgic", emoji: "🌙", timeRange: "long_term"   },
 ]
 
 export default function MoodSection() {
@@ -17,15 +19,15 @@ export default function MoodSection() {
     setCreating(mood.label)
     setError("")
     try {
-      const recRes = await fetch(
-        `/api/spotify/recommendations?seed_genres=${encodeURIComponent(mood.seeds)}&limit=30`,
+      const tracksRes = await fetch(
+        `/api/spotify/top-tracks?time_range=${mood.timeRange}`,
         { credentials: "include" }
       )
-      const recData = recRes.ok ? await recRes.json().catch(() => ({})) : {}
-      const uris = (recData.tracks || []).map((t: any) => t.uri)
+      const tracksData = tracksRes.ok ? await tracksRes.json().catch(() => ({})) : {}
+      const uris = (tracksData.items || []).map((t: any) => t.uri)
 
       if (uris.length === 0) {
-        setError(`Couldn't get recommendations for ${mood.label}. Try again.`)
+        setError(`Couldn't load tracks for ${mood.label}. Try again.`)
         setCreating(null)
         return
       }

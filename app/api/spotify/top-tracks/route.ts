@@ -8,9 +8,10 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const timeRange = searchParams.get("time_range") || "short_term"
+  const limit = searchParams.get("limit") || "50"
 
   const response = await fetch(
-    `https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=${timeRange}`,
+    `https://api.spotify.com/v1/me/top/tracks?limit=${limit}&time_range=${timeRange}`,
     { headers: { Authorization: `Bearer ${session.accessToken}` } }
   )
   const data = await response.json()
