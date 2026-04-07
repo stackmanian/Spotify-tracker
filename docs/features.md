@@ -7,25 +7,41 @@
 - **Scopes**: `user-top-read`, `user-read-recently-played`, `user-library-read`, `playlist-read-private`, `playlist-modify-public`, `playlist-modify-private`
 
 ## Dashboard (`/dashboard`)
-- Server component — fetches directly from Spotify API using bearer token from session
-- Displays: top tracks, top artists, recently played songs (10 items each)
-- Uses `cache: "no-store"` for always-fresh data
+- Server component — stat cards hub page
+- **Stat cards**: estimated listening time this month (calculated from recently-played `played_at` + `duration_ms`), top genre (from top artist genres), top artist, top track
+- Navigation cards linking to Stats, Recently Played, and Playlists pages
 
-## Filter & Playlist Creation (`/filter`)
-- Client component (`"use client"`) with local state for filtering
-- Fetches up to 50 top tracks via internal API route (`/api/spotify/top-tracks`)
-- Time range selector: `short_term` (4 weeks), `medium_term` (6 months), `long_term` (all time)
-- Multi-select track list → POST to `/api/spotify/create-playlist` to create a named playlist
+## Stats & Filter (`/filter`)
+- Client component with local state
+- **Tracks view**: top 50 tracks with `mm:ss` duration per track, total listening time estimate, artist filter
+- **Artists view**: top 50 artists with genre pill and follower count
+- **Time ranges**: 5 labels (Last Month, Last 3 Months, Last 6 Months, Last Year, All Time) mapped to 3 Spotify API ranges (`short_term`, `medium_term`, `long_term`)
+- **Playlist creation**: fills up to 40 tracks — user's filtered tracks first, remainder padded with Spotify recommendations. Redirects to `/playlists` on success.
+
+## Recently Played (`/recently-played`)
+- Client component
+- **Left panel**: scrollable listening history with relative timestamps (`Xm ago`, `Xh ago`, `Xd ago`)
+- **Right panel**: "Recommended for You" grid (seeded from recent tracks) + "New Releases" grid
+- Newspaper-style card grid layout for both sections
+
+## Playlists (`/playlists`)
+- Server component (playlist grid) + client `MoodSection` component
+- **Grid**: user's Spotify playlists with cover art, name, track count. Each links to Spotify.
+- **Mood creation**: 5 mood presets (Happy, Focus, Chill, Hype, Sleep) — creates playlists via genre-seeded recommendations
 
 ## Internal Spotify API Routes
 All routes under `/app/api/spotify/` check session via `getServerSession` and return 401 if unauthenticated.
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/api/spotify/top-tracks` | GET | Proxies Spotify top tracks, accepts `time_range` query param |
-| `/api/spotify/top-artists` | GET | Proxies Spotify top artists |
-| `/api/spotify/create-playlist` | POST | Creates a playlist from selected track URIs |
+| `/api/spotify/top-tracks` | GET | Top tracks, accepts `time_range` |
+| `/api/spotify/top-artists` | GET | Top artists, accepts `time_range` |
+| `/api/spotify/recently-played` | GET | Recently played, accepts `limit` |
+| `/api/spotify/recommendations` | GET | Recommendations via `seed_tracks` or `seed_genres` + `limit` (max 5 seeds) |
+| `/api/spotify/new-releases` | GET | New album releases, accepts `limit` |
+| `/api/spotify/playlists` | GET | User's playlists |
+| `/api/spotify/create-playlist` | POST | Creates a playlist from `{ name, uris[] }` |
 
 ## Navigation
-- Persistent nav bar rendered in root layout (`/app/layout.tsx`)
-- Links: Dashboard, Filter
+- Persistent nav bar in root layout (`/app/layout.tsx`)
+- Links: Dashboard, Stats, Recently Played, Playlists, Sign Out
