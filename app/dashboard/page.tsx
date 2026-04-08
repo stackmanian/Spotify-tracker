@@ -35,22 +35,19 @@ export default function Dashboard() {
 
   // DB stats
   const [stats, setStats] = useState<any>(null)
-  const [collecting, setCollecting] = useState(false)
 
   const timeRange = TIME_RANGES[rangeIndex].value
 
   // Collect plays on mount, then fetch stats
   useEffect(() => {
-    setCollecting(true)
     fetch("/api/cron/collect-plays", { credentials: "include" })
       .then(r => r.json())
       .then(() => fetch("/api/spotify/stats", { credentials: "include" }))
       .then(r => r.json())
       .then(data => {
-        setStats(data)
-        setCollecting(false)
+        if (data?.month) setStats(data)
       })
-      .catch(() => setCollecting(false))
+      .catch(() => {})
   }, [])
 
   // Fetch top artists and tracks when time range changes
@@ -69,10 +66,17 @@ export default function Dashboard() {
   // Build lookup maps from DB stats
   const trackPlayCounts = new Map<string, number>()
   const artistListenTime = new Map<string, number>()
+  const artistListenTimeByName = new Map<string, number>()
   if (stats) {
-    for (const t of stats.top_tracks || []) trackPlayCounts.set(t.track_id, t.play_count)
-    for (const a of stats.top_artists || []) artistListenTime.set(a.artist_id, a.total_ms)
+    for (const t of stats.top_tracks || []) trackPlayCounts.set(t.track_id, Number(t.play_count))
+    for (const a of stats.top_artists || []) {
+      artistListenTime.set(a.artist_id, Number(a.total_ms))
+      artistListenTimeByName.set(a.artist_name?.toLowerCase(), Number(a.total_ms))
+    }
   }
+
+  const topTrackedTrack = stats?.top_tracks?.[0]
+
 
   return (
     <main className="min-h-screen bg-black text-white p-8">
@@ -93,29 +97,27 @@ export default function Dashboard() {
       </div>
 
       {/* Monthly stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gray-900 rounded-xl p-5">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">This Month</p>
-          <p className="text-white text-3xl font-bold">
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-gray-900 rounded-xl p-4">
+          <p className="text-gray-400 text-[10px] uppercase tracking-wider mb-1">This Month</p>
+          <p className="text-white text-xl font-bold">
             {stats ? formatTotalTime(stats.month.total_ms) : "—"}
           </p>
-          <p className="text-gray-500 text-sm mt-1">total listening time</p>
+          <p className="text-gray-500 text-xs mt-0.5">listening time</p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">This Month</p>
-          <p className="text-white text-3xl font-bold">
-            {stats ? stats.month.play_count.toLocaleString() : "—"}
-          </p>
-          <p className="text-gray-500 text-sm mt-1">tracks played</p>
+        <div className="bg-gray-900 rounded-xl p-4">
+          <p className="text-gray-400 text-[10px] uppercase tracking-wider mb-1">Top Artist</p>
+          <div className="flex items-center gap-2 mt-1">
+            {artists[0]?.images?.[2]?.url && <img src={artists[0].images[2].url} className="w-7 h-7 rounded-full object-cover shrink-0" />}
+            <p className="text-white text-lg font-bold truncate">{artists[0]?.name ?? "—"}</p>
+          </div>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Total Collected</p>
-          <p className="text-white text-3xl font-bold">
-            {stats ? stats.total_plays_collected.toLocaleString() : "—"}
-          </p>
-          <p className="text-gray-500 text-sm mt-1">
-            plays tracked{collecting ? " · collecting..." : ""}
-          </p>
+        <div className="bg-gray-900 rounded-xl p-4">
+          <p className="text-gray-400 text-[10px] uppercase tracking-wider mb-1">Top Track</p>
+          <div className="flex items-center gap-2 mt-1">
+            {tracks[0]?.album?.images?.[2]?.url && <img src={tracks[0].album.images[2].url} className="w-7 h-7 rounded shrink-0" />}
+            <p className="text-white text-lg font-bold truncate">{tracks[0]?.name ?? "—"}</p>
+          </div>
         </div>
       </div>
 
@@ -143,7 +145,9 @@ export default function Dashboard() {
                     <div className="flex-1 overflow-hidden">
                       <p className="font-medium truncate">{artist.name}</p>
                       <p className="text-gray-400 text-sm">
-                        {listenMs ? formatTotalTime(listenMs) + " listened" : artist.followers?.total?.toLocaleString() + " followers"}
+                        {(listenMs || artistListenTimeByName.get(artist.name?.toLowerCase()))
+                          ? formatTotalTime(listenMs || artistListenTimeByName.get(artist.name?.toLowerCase()) || 0) + " listened"
+                          : ""}
                       </p>
                     </div>
                   </div>

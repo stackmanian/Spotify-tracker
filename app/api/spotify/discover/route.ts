@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic"
 import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
 import { authOptions } from "../../auth/[...nextauth]/route"
-import { getDb } from "../../../../lib/db"
+import { getPlayedTrackIds, initDb } from "../../../../lib/db"
 
 async function safeFetch(url: string, headers: Record<string, string>): Promise<any> {
   const res = await fetch(url, { headers })
@@ -83,10 +83,8 @@ export async function GET() {
   }
 
   // 5. Filter out already-played tracks
-  const db = getDb()
-  const playedIds = new Set(
-    (db.prepare("SELECT DISTINCT track_id FROM plays").all() as any[]).map(r => r.track_id)
-  )
+  await initDb()
+  const playedIds = await getPlayedTrackIds()
 
   const results = discoveredTracks
     .filter(t => !playedIds.has(t.id))

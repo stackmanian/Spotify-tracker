@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import NextAuth, { NextAuthOptions } from "next-auth"
 import SpotifyProvider from "next-auth/providers/spotify"
 
@@ -63,6 +64,7 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
+  secret: process.env.NEXTAUTH_SECRET,
 }
 
 const handler = NextAuth(authOptions)
